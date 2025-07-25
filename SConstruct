@@ -76,6 +76,7 @@ post_setup_snore_core(
     sources,
     surf_scaf_lib_name,
     surf_scaf_addon_dir_name,
+    True,
     Default,
 )
 
