@@ -12,17 +12,16 @@ from submodules.snore_core.build_utils import (
 )
 from submodules.scaffolder.build_utils import (
     default_addon_dir_name as scaffolder_addon_dir_name,
-    default_lib_name as scaffolder_lib_name,
     set_up as set_up_scaffolder,
 )
 from submodules.surfacer.build_utils import (
     default_addon_dir_name as surfacer_addon_dir_name,
-    default_lib_name as surfacer_lib_name,
     set_up as set_up_surfacer,
 )
 from build_utils import (
     default_addon_dir_name as surf_scaf_addon_dir_name,
     default_lib_name as surf_scaf_lib_name,
+    set_up as set_up_surf_scaf,
 )
 
 
@@ -62,6 +61,13 @@ set_up_surfacer(
     sources,
     surfacer_addon_dir_name,
     is_setup_for_self=False,
+)
+set_up_surf_scaf(
+    env,
+    cpp_paths,
+    sources,
+    surf_scaf_addon_dir_name,
+    is_setup_for_self=True,
 )
 
 post_setup_snore_core(

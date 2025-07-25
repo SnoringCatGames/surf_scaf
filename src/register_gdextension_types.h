@@ -1,0 +1,7 @@
+#ifndef REGISTER_SURF_SCAF_GDEXTENSION_TYPES_H
+#define REGISTER_SURF_SCAF_GDEXTENSION_TYPES_H
+
+void initialize_surf_scaf_gdextension_types();
+void initialize_surf_scaf_gdextension_types();
+
+#endif // REGISTER_SURF_SCAF_GDEXTENSION_TYPES_H
