@@ -1,9 +1,9 @@
 [submodule "submodules/surfacer"]
 	path = submodules/surfacer
-	url = https://github.com/SnoringCatGames/surfacer2
+	url = https://github.com/SnoringCatGames/surfacer
 [submodule "submodules/scaffolder"]
 	path = submodules/scaffolder
-	url = https://github.com/SnoringCatGames/scaffolder2
+	url = https://github.com/SnoringCatGames/scaffolder
 [submodule "submodules/snore_core"]
 	path = submodules/snore_core
 	url = https://github.com/SnoringCatGames/snore_core
