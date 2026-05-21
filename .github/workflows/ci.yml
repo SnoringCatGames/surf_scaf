@@ -1,0 +1,83 @@
+name: CI
+
+# Build verification on push / PR. surf_scaf is the canonical bundled
+# extension — it statically links snore_core, scaffolder, and
+# surfacer into a single shared library (Godot 4 GDExtension can't
+# resolve classes across .so boundaries; see CLAUDE.md).
+#
+# What this catches: changes anywhere in the framework graph that
+# break the bundled build. This is the closest thing to a real
+# integration test in CI today (sans the actual demo run).
+
+on:
+  push:
+    branches: [dev, main, master]
+  pull_request:
+    branches: [dev, main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build bundle (Linux, x86_64, debug)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout surf_scaf
+        uses: actions/checkout@v4
+        with:
+          path: surf_scaf
+
+      - name: Checkout snore_core (private)
+        uses: actions/checkout@v4
+        with:
+          repository: SnoringCatGames/snore_core
+          ref: dev
+          token: ${{ secrets.PRIVATECHECKOUTACCESSTOKEN }}
+          path: snore_core
+
+      - name: Checkout scaffolder
+        uses: actions/checkout@v4
+        with:
+          repository: SnoringCatGames/scaffolder
+          ref: dev
+          path: scaffolder
+
+      - name: Checkout surfacer
+        uses: actions/checkout@v4
+        with:
+          repository: SnoringCatGames/surfacer
+          ref: dev
+          path: surfacer
+
+      - name: Checkout godot-cpp (4.4)
+        uses: actions/checkout@v4
+        with:
+          repository: godotengine/godot-cpp
+          ref: '4.4'
+          path: godot-cpp
+
+      - name: Checkout googletest
+        uses: actions/checkout@v4
+        with:
+          repository: google/googletest
+          path: googletest
+
+      - name: Install SCons
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install scons
+
+      - name: Build surf_scaf bundle (CI mode, dev features + tests)
+        working-directory: surf_scaf
+        run: scons sc_ci=yes sc_dev=yes sc_tests=yes
+
+      - name: Verify artifact landed in addon/bin
+        working-directory: surf_scaf
+        run: |
+          set -e
+          ls -lR addon/bin/
+          find addon/bin -name 'libSurfScaf.*.so' -o -name 'libSurfScaf.*.dylib' \
+              | grep -q . || (echo 'No shared library produced.'; exit 1)
