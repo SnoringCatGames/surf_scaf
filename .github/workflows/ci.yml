@@ -139,21 +139,35 @@ jobs:
           chmod +x godot-bin/godot
           rm godot.zip
 
+      - name: Editor warmup (asset import + class registration)
+        working-directory: surf_scaf
+        # A --headless --editor --quit pass is required before any
+        # --headless run can succeed:
+        #   1) It triggers Godot's asset-import pipeline, populating
+        #      .godot/imported/ with files that .tres / .tscn loads
+        #      reference (otherwise: "Make sure resources have been
+        #      imported by opening the project in the editor at least
+        #      once.").
+        #   2) Editor mode runs all GDExtension class registrations
+        #      at all init levels before any GDScript class_name scan,
+        #      which prevents "Could not find type SnoreCore" parse
+        #      errors when scaffolder/snore_core/etc. .gd shims try
+        #      to `extends` a C++-side class.
+        # set +e because Godot can exit non-zero on import warnings.
+        run: |
+          set +e
+          ../godot-bin/godot --headless --editor --quit \
+              --path ./demo 2>&1 | tail -40
+          true
+
       - name: Run demo headless + check tests
         working-directory: surf_scaf
-        # The demo project's DemoMain._ready() calls SnoreCore.run_tests()
-        # by default (run_tests = true). gtest runs all linked-in test
-        # suites and prints either "SnoreCore test result: ALL TESTS
-        # PASSED!" or "...SOME TESTS FAILED!" to stdout. We grep for the
-        # passed marker and fail CI if it's absent.
-        #
-        # --headless: no graphics. --quit: exit after first main-loop
-        #     iteration (which is after _ready() completes). --verbose:
-        #     extra diagnostics if anything blows up.
-        # set +e around the godot invocation: Godot sometimes exits
-        #     non-zero on warning-level messages even after a successful
-        #     test run, so we don't trust the exit code — the stdout
-        #     marker is authoritative.
+        # The demo's DemoMain._ready() calls SnoreCore.run_tests()
+        # (run_tests = true by default). gtest runs all linked-in test
+        # suites and prints "SnoreCore test result: ALL TESTS PASSED!"
+        # or "...SOME TESTS FAILED!". We grep for the passed marker;
+        # don't trust the godot exit code (warning-level messages can
+        # produce non-zero exits even on success).
         run: |
           set +e
           ../godot-bin/godot --verbose --headless --quit \
