@@ -17,7 +17,10 @@ void initialize_surf_scaf_gdextension_types(ModuleInitializationLevel p_level) {
 	// NOTE: Godot currently doesn't support dependencies between separate
 	//       GDExtensions. If support is added later, each SnoreCore should
 	//       register its own types, rather than SurfScaf doing it here.
-	//       See https://github.com/godot-rust/gdext/issues/615.
+	//       See https://github.com/godotengine/godot-proposals/issues/13997
+	//       (engine proposal) and
+	//       https://github.com/godot-rust/gdext/issues/615 (rust-bindings
+	//       tracker that originally surfaced this).
 	SnoreCore::register_gdextension_types(p_level);
 	Scaffolder::register_gdextension_types(p_level);
 	Surfacer::register_gdextension_types(p_level);
@@ -31,7 +34,10 @@ void uninitialize_surf_scaf_gdextension_types(
 	// NOTE: Godot currently doesn't support dependencies between separate
 	//       GDExtensions. If support is added later, each SnoreCore should
 	//       unregister its own types, rather than SurfScaf doing it here.
-	//       See https://github.com/godot-rust/gdext/issues/615.
+	//       See https://github.com/godotengine/godot-proposals/issues/13997
+	//       (engine proposal) and
+	//       https://github.com/godot-rust/gdext/issues/615 (rust-bindings
+	//       tracker that originally surfaced this).
 	SnoreCore::unregister_gdextension_types(p_level);
 	Scaffolder::unregister_gdextension_types(p_level);
 	Surfacer::unregister_gdextension_types(p_level);
