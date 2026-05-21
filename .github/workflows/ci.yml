@@ -1,13 +1,15 @@
 name: CI
 
-# Build verification. surf_scaf is the canonical bundled extension —
-# it statically links snore_core, scaffolder, and surfacer into a
-# single shared library (Godot 4 GDExtension can't resolve classes
-# across .so boundaries; see CLAUDE.md).
-#
-# What this catches: changes anywhere in the framework graph that
-# break the bundled build. This is the closest thing to a real
-# integration test in CI today (sans the actual demo run).
+# Build verification + headless test execution. surf_scaf is the
+# canonical bundled extension — it statically links snore_core,
+# scaffolder, and surfacer into a single shared library (Godot 4
+# GDExtension can't resolve classes across .so boundaries; see
+# CLAUDE.md). Because every framework's tests are statically
+# compiled INTO the surf_scaf bundle (sc_tests=yes), running this
+# workflow's demo through a headless Godot executes the full test
+# suite for snore_core + scaffolder + surfacer at once. The other
+# framework repos' CIs only verify compilation; surf_scaf's CI is
+# where actual runtime tests happen.
 
 on:
   # Cost-conscious trigger set (matches hopnbop_private's pattern):
@@ -114,3 +116,54 @@ jobs:
           ls -lR addon/bin/
           find addon/bin -name 'libSurfScaf.*.so' -o -name 'libSurfScaf.*.dylib' \
               | grep -q . || (echo 'No shared library produced.'; exit 1)
+
+      - name: Cache Godot binary
+        id: cache-godot
+        # 4.4-stable is the runtime that matches godot-cpp 4.4 (which
+        # the extension is built against). Pinning the version to make
+        # cache invalidation explicit — bump GODOT_VERSION when moving.
+        uses: actions/cache@v4
+        with:
+          path: godot-bin
+          key: godot-4.4-stable-linux-x86_64-v1
+
+      - name: Download Godot 4.4 stable
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          mkdir -p godot-bin
+          curl -sL -o godot.zip \
+              "https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin/
+          mv godot-bin/Godot_v4.4-stable_linux.x86_64 godot-bin/godot
+          chmod +x godot-bin/godot
+          rm godot.zip
+
+      - name: Run demo headless + check tests
+        working-directory: surf_scaf
+        # The demo project's DemoMain._ready() calls SnoreCore.run_tests()
+        # by default (run_tests = true). gtest runs all linked-in test
+        # suites and prints either "SnoreCore test result: ALL TESTS
+        # PASSED!" or "...SOME TESTS FAILED!" to stdout. We grep for the
+        # passed marker and fail CI if it's absent.
+        #
+        # --headless: no graphics. --quit: exit after first main-loop
+        #     iteration (which is after _ready() completes). --verbose:
+        #     extra diagnostics if anything blows up.
+        # set +e around the godot invocation: Godot sometimes exits
+        #     non-zero on warning-level messages even after a successful
+        #     test run, so we don't trust the exit code — the stdout
+        #     marker is authoritative.
+        run: |
+          set +e
+          ../godot-bin/godot --verbose --headless --quit \
+              --path ./demo 2>&1 | tee test_output.txt
+          set -e
+          if grep -q "ALL TESTS PASSED" test_output.txt; then
+            echo "Tests passed."
+          else
+            echo "::error::'ALL TESTS PASSED' not found in test output."
+            echo "Last 100 lines of output:"
+            tail -100 test_output.txt
+            exit 1
+          fi
