@@ -1,19 +1,25 @@
 name: CI
 
-# Build verification on push / PR. surf_scaf is the canonical bundled
-# extension — it statically links snore_core, scaffolder, and
-# surfacer into a single shared library (Godot 4 GDExtension can't
-# resolve classes across .so boundaries; see CLAUDE.md).
+# Build verification. surf_scaf is the canonical bundled extension —
+# it statically links snore_core, scaffolder, and surfacer into a
+# single shared library (Godot 4 GDExtension can't resolve classes
+# across .so boundaries; see CLAUDE.md).
 #
 # What this catches: changes anywhere in the framework graph that
 # break the bundled build. This is the closest thing to a real
 # integration test in CI today (sans the actual demo run).
 
 on:
+  # Cost-conscious trigger set (matches hopnbop_private's pattern):
+  # active dev work pushes to `dev` and does NOT trigger CI; the
+  # daily schedule + integration pushes to the slim default branches
+  # do.
   push:
-    branches: [dev, main, master]
+    branches: [main, master]
   pull_request:
-    branches: [dev, main, master]
+    branches: [main, master]
+  schedule:
+    - cron: '0 4 * * *'  # 04:00 UTC daily
   workflow_dispatch:
 
 concurrency:
