@@ -128,23 +128,26 @@ jobs:
 
       - name: Cache Godot binary
         id: cache-godot
-        # 4.4-stable matches godot-cpp 4.4 (which the extension is
-        # built against). Bump both together; the suffix on the
-        # cache key is the manual escape hatch.
+        # 4.4.1-stable matches godot-cpp's `4.4` branch HEAD (which
+        # is currently 4.4.1-tagged). 4.4-stable (= 4.4.0) refuses to
+        # load extensions built against godot-cpp 4.4.1 with
+        # "Cannot load a GDExtension built for Godot 4.4.1 using an
+        # older version of Godot (4.4.0)." Bump both together; the
+        # cache key suffix is the manual escape hatch.
         uses: actions/cache@v4
         with:
           path: godot-bin
-          key: godot-4.4-stable-linux-x86_64-v1
+          key: godot-4.4.1-stable-linux-x86_64-v1
 
-      - name: Download Godot 4.4 stable
+      - name: Download Godot 4.4.1 stable
         if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
           set -e
           mkdir -p godot-bin
           curl -sL -o godot.zip \
-              "https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+              "https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip"
           unzip -q godot.zip -d godot-bin/
-          mv godot-bin/Godot_v4.4-stable_linux.x86_64 godot-bin/godot
+          mv godot-bin/Godot_v4.4.1-stable_linux.x86_64 godot-bin/godot
           chmod +x godot-bin/godot
           rm godot.zip
 
