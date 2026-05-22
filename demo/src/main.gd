@@ -11,21 +11,28 @@ extends Node
 
 
 func _ready() -> void:
-    G.snore_core = SnoreCore.get_module("SnoreCore")
-    G.scaffolder = SnoreCore.get_module("Scaffolder")
-    G.surfacer = SnoreCore.get_module("Surfacer")
+	G.snore_core = SnoreCore.get_module("SnoreCore")
+	G.scaffolder = SnoreCore.get_module("Scaffolder")
+	G.surfacer = SnoreCore.get_module("Surfacer")
 
-    G.snore_core.connect("all_modules_set_up_finished", _on_snore_core_set_up_finished)
-    SnoreCore.set_up([snore_core_settings, scaffolder_settings, surfacer_settings])
-    Stopwatch
-    if run_tests:
-        var tests_passed = SnoreCore.run_tests()
+	G.snore_core.connect("all_modules_set_up_finished", _on_snore_core_set_up_finished)
+	SnoreCore.set_up([snore_core_settings, scaffolder_settings, surfacer_settings])
+	if run_tests:
+		# Defer test execution so the gtest fixtures (especially the
+		# Tween tests) can add helper nodes to the scene tree.
+		# Synchronous add_child() during _ready() trips the
+		# "Parent node is busy setting up children" guard.
+		call_deferred("_run_tests_deferred")
+
+
+func _run_tests_deferred() -> void:
+	SnoreCore.run_tests()
 
 
 func _on_snore_core_set_up_finished() -> void:
-    G.snore_core_settings = G.snore_core.get_settings()
-    G.scaffolder_settings = G.scaffolder.get_settings()
-    G.surfacer_settings = G.surfacer.get_settings()
+	G.snore_core_settings = G.snore_core.get_settings()
+	G.scaffolder_settings = G.scaffolder.get_settings()
+	G.surfacer_settings = G.surfacer.get_settings()
 
-    # FIXME: Port Scaffolder logic and get this running.
-    #S.set_up(G.scaffolder_settings)
+	# FIXME: Port Scaffolder logic and get this running.
+	#S.set_up(G.scaffolder_settings)

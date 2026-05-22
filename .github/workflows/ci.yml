@@ -1,19 +1,25 @@
 name: CI
 
-# Build verification. surf_scaf is the canonical bundled extension —
-# it statically links snore_core, scaffolder, and surfacer into a
-# single shared library (Godot 4 GDExtension can't resolve classes
-# across .so boundaries; see CLAUDE.md).
+# Build verification + gtest run via the demo project. surf_scaf is
+# the canonical bundled extension — it statically links snore_core,
+# scaffolder, and surfacer into a single shared library (Godot 4
+# GDExtension can't resolve classes across .so boundaries; see
+# CLAUDE.md).
 #
-# Test running was attempted 2026-05-20 but reverted: the demo
-# project's scaffolder.s.gd autoload declares typed variables
-# referencing dropped Phase 3 scaffolder content (LoggersDisplay,
-# ScaffolderGameScreen, ScaffolderSettingsOld), so its parse fails
-# at autoload time — before extension classes finish registering —
-# and that cascades into every downstream script. This works
-# locally only because the editor's interactive load sequence is
-# more permissive than --headless --quit. Re-enable real tests
-# once the demo cleanup lands in Phase 3 (see ROADMAP).
+# Test running pattern (re-enabled 2026-05-21 after the Phase 3
+# demo cleanup):
+#   1. `godot --headless --editor --quit` warms the import cache and
+#      populates extension_list.cfg. Without this, the demo's
+#      cold-boot parse fails because the GDExtension classes haven't
+#      registered before autoload scripts get parsed.
+#   2. `godot --headless --quit-after 60` runs main.gd, which defers
+#      SnoreCore.run_tests() to the next frame (so Tween tests can
+#      mutate the scene tree). `--quit` exits too early for that;
+#      `--quit-after 60` gives the deferred call a frame to fire.
+#   3. The test runner emits "ALL TESTS PASSED!" / "SOME TESTS
+#      FAILED!" — we grep for the passing marker. Godot's exit code
+#      is unreliable (non-fatal warnings flip it), so the stdout
+#      marker is authoritative.
 
 on:
   # Cost-conscious trigger set (matches hopnbop_private's pattern):
@@ -120,3 +126,68 @@ jobs:
           ls -lR addon/bin/
           find addon/bin -name 'libSurfScaf.*.so' -o -name 'libSurfScaf.*.dylib' \
               | grep -q . || (echo 'No shared library produced.'; exit 1)
+
+      - name: Cache Godot binary
+        id: cache-godot
+        # 4.4-stable matches godot-cpp 4.4 (which the extension is
+        # built against). Bump both together; the suffix on the
+        # cache key is the manual escape hatch.
+        uses: actions/cache@v4
+        with:
+          path: godot-bin
+          key: godot-4.4-stable-linux-x86_64-v1
+
+      - name: Download Godot 4.4 stable
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          mkdir -p godot-bin
+          curl -sL -o godot.zip \
+              "https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin/
+          mv godot-bin/Godot_v4.4-stable_linux.x86_64 godot-bin/godot
+          chmod +x godot-bin/godot
+          rm godot.zip
+
+      - name: Warm Godot import cache
+        working-directory: surf_scaf
+        # On a fresh checkout the demo's .godot/ doesn't exist, so
+        # the GDExtension hasn't been registered with the engine
+        # yet. Running --editor --quit populates .godot/
+        # (extension_list.cfg, imported/, global_script_class_cache)
+        # so the subsequent --headless run can see the C++ classes.
+        # Retried because the first pass occasionally crashes on
+        # cold cache (extension's first-load init can SEGV). Each
+        # successive pass picks up where the previous left off.
+        run: |
+          set +e
+          for i in 1 2 3; do
+            ../godot-bin/godot --headless --editor --quit --path ./demo
+            exit_code=$?
+            if [ $exit_code -eq 0 ]; then
+              echo "Warm pass $i succeeded."
+              break
+            fi
+            echo "Warm pass $i exited $exit_code; retrying."
+          done
+
+      - name: Run gtest suite via demo
+        working-directory: surf_scaf
+        # main.gd defers SnoreCore.run_tests() so Tween fixtures
+        # can mutate the scene tree. --quit-after 60 gives the
+        # deferred call one frame to fire before quitting.
+        # We grep stdout for the gtest summary marker because
+        # Godot's exit code is muddied by non-fatal warnings.
+        run: |
+          set +e
+          ../godot-bin/godot --verbose --headless --quit-after 60 \
+              --path ./demo 2>&1 | tee test_output.txt
+          set -e
+          if grep -q "ALL TESTS PASSED" test_output.txt; then
+            echo "Tests passed."
+          else
+            echo "::error::'ALL TESTS PASSED' not found in test output."
+            echo "Last 100 lines of output:"
+            tail -100 test_output.txt
+            exit 1
+          fi
